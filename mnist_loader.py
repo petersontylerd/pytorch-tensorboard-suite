@@ -2,6 +2,7 @@
 import os
 import struct
 import numpy as np
+import matplotlib.pyplot as plt
 
 # pytorch 
 import torch
@@ -63,6 +64,16 @@ class ISICDatasetTrain(Dataset):
         return image, target
 
 
+def image_sample(inp, title=None, figsize=(20,20)):
+    inp = inp.numpy().transpose((1, 2, 0))
+    inp = np.clip(inp, 0, 1)
+    plt.figure(figsize=figsize)
+    plt.imshow(inp, interpolation='nearest')
+    if title is not None:
+        plt.title(title)
+    plt.savefig("./test_2.jpg")
+
+
 if __name__ == "__main__":
     
     mnist_dir=os.path.join(os.environ["HOME"], "s3buckets", "mnist")
@@ -75,8 +86,8 @@ if __name__ == "__main__":
     )
 
     train_data = ISICDatasetTrain(
-        image_paths=train_samples,
-        targets=train_targets,
+        images=X_train,
+        targets=y_train,
     )
 
     train_data_loader = torch.utils.data.DataLoader(
@@ -85,4 +96,10 @@ if __name__ == "__main__":
         shuffle=False,
         # sampler=weighted_sampler
     )
-    print(type(train_data_loader))
+    # print(type(train_data_loader))
+
+    # visualize image batch grid
+    inputs, classes = next(iter(train_data_loader))
+    out = torchvision.utils.make_grid(inputs)
+
+    image_sample(out)
