@@ -13,13 +13,13 @@ def load_mnist(path, kind='train'):
                                '{}-labels-idx1-ubyte'.format(kind))
     images_path = os.path.join(path,
                                '{}-images-idx3-ubyte'.format(kind))
-    
+
     with open(labels_path, 'rb') as lbpath:
         magic, n = struct.unpack('>II',
                                  lbpath.read(8))
         labels = np.fromfile(lbpath,
                              dtype=np.uint8)
-    
+
     with open(images_path, 'rb') as imgpath:
         magic, num, rows, cols = struct.unpack(">IIII",
                                                imgpath.read(16))
@@ -27,12 +27,12 @@ def load_mnist(path, kind='train'):
                              dtype=np.uint8).reshape(
                              len(labels), 784)
         images = ((images / 255.) - .5) * 2
-    
+
     return images, labels
 
 
 if __name__ == "__main__":
-    
+
     mnist_dir=os.path.join(os.environ["HOME"], "s3buckets", "mnist")
 
     ## training
