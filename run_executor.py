@@ -22,7 +22,6 @@ import torchvision
 from torchvision import datasets, models, transforms
 
 from torch.utils.tensorboard import SummaryWriter
-tensorboard_log_dir = os.path.join(os.environ["HOME"],"workspace","tensorboard_logdir")
 
 from sklearn.model_selection import KFold, train_test_split, GridSearchCV, StratifiedKFold, cross_val_score, RandomizedSearchCV
 from sklearn.metrics import precision_score, recall_score, f1_score, explained_variance_score, mean_squared_log_error, mean_absolute_error, median_absolute_error, mean_squared_error, r2_score, confusion_matrix, roc_curve, accuracy_score, roc_auc_score, homogeneity_score, completeness_score, classification_report, silhouette_samples
@@ -30,6 +29,16 @@ from sklearn.metrics import precision_score, recall_score, f1_score, explained_v
 
 from load_mnist import load_mnist
 from mnist_pytorch_dataset import MNISTDataset
+
+class TensorboardLogger():
+
+    def __init__(self, tensorboard_logs_dir, comment):
+        self.tensorboard_logs_dir = tensorboard_logs_dir
+        self.comment = comment
+        self.writer = SummaryWriter(log_dir=self.tensorboard_logs_dir)
+
+    def add_scalar_(self, tag, value, n_iter):
+        self.writer.add_scalar(tag, value, n_iter)
 
 class RunExecuter():
 
@@ -67,6 +76,13 @@ class RunExecuter():
 
         # create directory tree for tracking experiment results
         self.create_dirs()
+
+    def update_scalars(self):
+        for tag, values in self.metrics.items():
+            if "train_" in tag:
+                self.tensorboard_logger.add_scalar_("train/" + tag, values[-1], self.epoch_count)
+            # else:
+            #     self.tensorboard_logger.add_scalar_("validation/" + tag, values[-1], self.epoch_count)
 
     def create_dirs(self):
         """
@@ -120,15 +136,30 @@ class RunExecuter():
         # reset number of epochs initiated
         self.epoch_count = 0
 
+        #
+        if self.config.use_tensorboard:
+            self.tensorboard_logger = TensorboardLogger(
+                tensorboard_logs_dir=self.tensborboard_logs_dir,
+                comment=self.run_count,
+            )
+
+        # create a metadata dictionary
+        self.meta = OrderedDict([
+            ("run",[]),
+            ("run_duration",[]),
+            ("epoch",[]),
+            ("epoch_start_time",[]),
+            ("epoch_end_time",[]),
+            ("epoch_duration",[]),
+        ])
+
+        # add key/value for each hyperparameter to metadata dictionary
+        for param in self.run_params.keys():
+            self.meta[param] = []
+
         # create metrics dictionary
         if self.is_multiclass:
             self.metrics = OrderedDict([
-                ("run",[]),
-                ("run_duration",[]),
-                ("epoch",[]),
-                ("epoch_start_time",[]),
-                ("epoch_end_time",[]),
-                ("epoch_duration",[]),
                 ("train_loss",[]),
                 ("train_accuracy",[]),
                 ("train_precision_macro",[]),
@@ -148,15 +179,8 @@ class RunExecuter():
                 ("validation_number_correct",[]),
             ])
 
-
         else:
             self.metrics = OrderedDict([
-                ("run",[]),
-                ("run_duration",[]),
-                ("epoch",[]),
-                ("epoch_start_time",[]),
-                ("epoch_end_time",[]),
-                ("epoch_duration",[]),
                 ("train_loss",[]),
                 ("train_accuracy",[]),
                 ("train_precision",[]),
@@ -169,10 +193,6 @@ class RunExecuter():
                 ("validation_f1",[]),
                 ("validation_number_correct",[]),
             ])
-
-        # add key/value for each hyperparameter
-        for param in self.run_params.keys():
-            self.metrics[param] = []
 
     def end_run(self):
         """
@@ -192,6 +212,10 @@ class RunExecuter():
 
         # reset network parameters
         self.reset_network()
+
+        if self.config.use_tensorboard:
+            self.tensorboard_logger.writer.flush()
+            self.tensorboard_logger.writer.close()
 
     def begin_epoch(self):
         """
@@ -248,6 +272,8 @@ class RunExecuter():
         self.track_time()
         self.track_params()
 
+        self.update_scalars()
+
         # print progress report
         if self.config.verbose:
             pass
@@ -280,8 +306,11 @@ class RunExecuter():
                 Export metrics dictionary to csv.
 
         """
+        # merge metadata and metrics dictionaries
+        combined_dict = {**self.meta, **self.metrics}
+
         # insert metrics dictionary into dataframe
-        self.results_df = pd.DataFrame(self.metrics, columns=self.metrics.keys())
+        self.results_df = pd.DataFrame(combined_dict, columns=combined_dict.keys())
 
         # append results dataframe to csv
         results_file = os.path.join(self.raw_logs_dir, "results.csv")
@@ -289,7 +318,7 @@ class RunExecuter():
 
             # if the csv already has data in it, append additional data without header
             try:
-                _ = pd.read_csv(os.path.join(results_file, "results.csv"))
+                _ = pd.read_csv(os.path.join(results_file))
                 self.results_df.to_csv(f, header=False)
 
             # other append data with header
@@ -424,15 +453,15 @@ class RunExecuter():
                 Collect runtime information.
 
         """
-        # append run time metrics
-        self.metrics["run"].append(self.run_count)
-        self.metrics["run_duration"].append(self.run_duration)
+        # append run time metadata
+        self.meta["run"].append(self.run_count)
+        self.meta["run_duration"].append(self.run_duration)
 
-        # append epoch time metrics
-        self.metrics["epoch"].append(self.epoch_count)
-        self.metrics["epoch_start_time"].append(self.epoch_start_time)
-        self.metrics["epoch_end_time"].append(self.epoch_end_time)
-        self.metrics["epoch_duration"].append(self.epoch_duration)
+        # append epoch time metadata
+        self.meta["epoch"].append(self.epoch_count)
+        self.meta["epoch_start_time"].append(self.epoch_start_time)
+        self.meta["epoch_end_time"].append(self.epoch_end_time)
+        self.meta["epoch_duration"].append(self.epoch_duration)
 
     def track_params(self):
         """
@@ -445,7 +474,7 @@ class RunExecuter():
         """
         # add key/value for each hyperparameter
         for param, value in self.run_params.items():
-            self.metrics[param].append(value)
+            self.meta[param].append(value)
 
     def track_epoch_metrics(self, mode):
         """
@@ -550,7 +579,7 @@ class RunExecuter():
         self.run_count = 0
 
         for run in self.get_parameter_grid():
-
+            print(run)
             self.run_params = run._asdict()
             self.begin_run()
 
@@ -577,6 +606,7 @@ class RunExecuter():
                 self.end_epoch()
             self.end_run()
         # self.save('results')
+
 
     def train(self):
         """
@@ -681,10 +711,10 @@ if __name__ == "__main__":
 
     # load data into Pytorch Dataset
     train_data = MNISTDataset(
-        images=X_train,
-        targets=y_train,
-        # images=X_train[:6000,:],
-        # targets=y_train[:6000],
+        # images=X_train,
+        # targets=y_train,
+        images=X_train[:10000,:],
+        targets=y_train[:10000],
         transform=train_transform,
     )
 
@@ -732,7 +762,7 @@ if __name__ == "__main__":
         parameters = dict(
                 lr = [.0001]
                 ,batch_size = [1000]
-                ,shuffle = [True, False]
+                ,shuffle = [True,False]
             ),
         # parameters = dict(
         #         lr = [.01, .001, .0001]
@@ -740,7 +770,7 @@ if __name__ == "__main__":
         #         ,shuffle = [True, False]
         #     ),
         epochs = 5,
-        tensorboard_files = False,
+        use_tensorboard = True,
         verbose = True,
         save_model_objects=True,
         )
