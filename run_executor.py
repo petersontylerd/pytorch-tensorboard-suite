@@ -30,7 +30,7 @@ from sklearn.metrics import precision_score, recall_score, f1_score, explained_v
 from load_mnist import load_mnist
 from mnist_pytorch_dataset import MNISTDataset
 
-class TensorboardLogger():
+class TensorboardExecutor():
 
     def __init__(self, tensorboard_logs_dir, comment):
         self.tensorboard_logs_dir = tensorboard_logs_dir
@@ -107,8 +107,8 @@ class RunExecuter():
         os.makedirs(self.models_dir, exist_ok=True)
 
         # directory for tensorboard logs
-        self.tensborboard_logs_dir = os.path.join(self.experiment_dir, "tensborboard_logs")
-        os.makedirs(self.tensborboard_logs_dir, exist_ok=True)
+        self.tensorboard_logs_dir = os.path.join(self.experiment_dir, "tensborboard_logs")
+        os.makedirs(self.tensorboard_logs_dir, exist_ok=True)
 
         # directory for images
         self.images_dir = os.path.join(self.experiment_dir, "images")
@@ -138,19 +138,19 @@ class RunExecuter():
 
         #
         if self.config.use_tensorboard:
-            self.tensorboard_logger = TensorboardLogger(
-                tensorboard_logs_dir=self.tensborboard_logs_dir,
+            self.tensorboard_logger = TensorboardExecutor(
+                tensorboard_logs_dir=self.tensorboard_logs_dir,
                 comment=self.run_count,
             )
 
         # create a metadata dictionary
         self.meta = OrderedDict([
-            ("run",[]),
-            ("run_duration",[]),
-            ("epoch",[]),
-            ("epoch_start_time",[]),
-            ("epoch_end_time",[]),
-            ("epoch_duration",[]),
+            ("run", np.empty([0,1])),
+            ("run_duration", np.empty([0,1])),
+            ("epoch", np.empty([0,1])),
+            ("epoch_start_time", np.empty([0,1])),
+            ("epoch_end_time", np.empty([0,1])),
+            ("epoch_duration", np.empty([0,1])),
         ])
 
         # add key/value for each hyperparameter to metadata dictionary
@@ -160,38 +160,38 @@ class RunExecuter():
         # create metrics dictionary
         if self.is_multiclass:
             self.metrics = OrderedDict([
-                ("train_loss",[]),
-                ("train_accuracy",[]),
-                ("train_precision_macro",[]),
-                ("train_precision_micro",[]),
-                ("train_recall_macro",[]),
-                ("train_recall_micro",[]),
-                ("train_f1_macro",[]),
-                ("train_f1_micro",[]),
-                ("train_number_correct",[]),
-                ("validation_accuracy",[]),
-                ("validation_precision_macro",[]),
-                ("validation_precision_micro",[]),
-                ("validation_recall_macro",[]),
-                ("validation_recall_micro",[]),
-                ("validation_f1_macro",[]),
-                ("validation_f1_micro",[]),
-                ("validation_number_correct",[]),
+                ("train_loss", np.empty([0,1])),
+                ("train_accuracy", np.empty([0,1])),
+                ("train_precision_macro", np.empty([0,1])),
+                ("train_precision_micro", np.empty([0,1])),
+                ("train_recall_macro", np.empty([0,1])),
+                ("train_recall_micro", np.empty([0,1])),
+                ("train_f1_macro", np.empty([0,1])),
+                ("train_f1_micro", np.empty([0,1])),
+                ("train_number_correct", np.empty([0,1])),
+                ("validation_accuracy", np.empty([0,1])),
+                ("validation_precision_macro", np.empty([0,1])),
+                ("validation_precision_micro", np.empty([0,1])),
+                ("validation_recall_macro", np.empty([0,1])),
+                ("validation_recall_micro", np.empty([0,1])),
+                ("validation_f1_macro", np.empty([0,1])),
+                ("validation_f1_micro", np.empty([0,1])),
+                ("validation_number_correct", np.empty([0,1])),
             ])
 
         else:
             self.metrics = OrderedDict([
-                ("train_loss",[]),
-                ("train_accuracy",[]),
-                ("train_precision",[]),
-                ("train_recall",[]),
-                ("train_f1",[]),
-                ("train_number_correct",[]),
-                ("validation_accuracy",[]),
-                ("validation_precision",[]),
-                ("validation_recall",[]),
-                ("validation_f1",[]),
-                ("validation_number_correct",[]),
+                ("train_loss", np.empty([0,1])),
+                ("train_accuracy", np.empty([0,1])),
+                ("train_precision", np.empty([0,1])),
+                ("train_recall", np.empty([0,1])),
+                ("train_f1", np.empty([0,1])),
+                ("train_number_correct", np.empty([0,1])),
+                ("validation_accuracy", np.empty([0,1])),
+                ("validation_precision", np.empty([0,1])),
+                ("validation_recall", np.empty([0,1])),
+                ("validation_f1", np.empty([0,1])),
+                ("validation_number_correct", np.empty([0,1])),
             ])
 
     def end_run(self):
@@ -241,10 +241,10 @@ class RunExecuter():
         # create dictionary for collecting training and validationdata targets
         # and predictions across all batches
         self.epoch_targets_and_predictions = OrderedDict([
-            ("train_targets",[]),
-            ("train_predictions",[]),
-            ("validation_targets",[]),
-            ("validation_predictions",[]),
+            ("train_targets",np.array([0,1])),
+            ("train_predictions",np.array([0,1])),
+            ("validation_targets",np.array([0,1])),
+            ("validation_predictions",np.array([0,1])),
         ])
 
     def end_epoch(self):
